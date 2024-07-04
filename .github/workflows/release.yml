@@ -3,8 +3,12 @@ on:
     types:
     - published
 name: Build Release
+permissions:
+  contents: read
 jobs:
   release-assests:
+    permissions:
+      contents: write  # for softprops/action-gh-release to create GitHub release
     name: release kubectl-karmada
     runs-on: ubuntu-22.04
     strategy:
@@ -41,6 +45,8 @@ jobs:
           _output/release/${{ matrix.target }}-${{ matrix.os }}-${{ matrix.arch }}.tgz
           _output/release/${{ matrix.target }}-${{ matrix.os }}-${{ matrix.arch }}.tgz.sha256
   release-crds-assests:
+    permissions:
+      contents: write  # for softprops/action-gh-release to create GitHub release
     name: release crds
     runs-on: ubuntu-22.04
     steps:
@@ -61,6 +67,8 @@ jobs:
         files: |
           crds.tar.gz
   release-charts:
+    permissions:
+      contents: write  # for softprops/action-gh-release to create GitHub release
     name: Release charts
     runs-on: ubuntu-22.04
     steps:
@@ -78,6 +86,28 @@ jobs:
           _output/charts/karmada-chart-${{ github.ref_name }}.tgz.sha256
           _output/charts/karmada-operator-chart-${{ github.ref_name }}.tgz
           _output/charts/karmada-operator-chart-${{ github.ref_name }}.tgz.sha256
+  sbom-assests:
+    permissions:
+      contents: write  # for softprops/action-gh-release to create GitHub release
+    name: Release sbom
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Generate sbom for karmada file system
+      uses: aquasecurity/trivy-action@0.23.0
+      with:
+        scan-type: 'fs'
+        format: 'spdx'
+        output: 'sbom-karmada.spdx'
+        scan-ref: "/github/workspace/"
+    - name: Tar the sbom files
+      run: |
+        tar -zcf sbom.tar.gz *.spdx
+    - name: Uploading sbom assets...
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          sbom.tar.gz
   update-krew-index:
     needs: release-assests
     name: Update krew-index
